@@ -66,7 +66,7 @@ async function fetchRates() {
         await upsertRate(base, to, rate);       // Live update
         await saveToHistory(base, to, rate);    // History insert
 
-        console.log(`[DB Updated] ${base} → ${to}: ${rate}`);
+        // console.log(`[DB Updated] ${base} → ${to}: ${rate}`);
 
         if (isNaN(rate)) {
           console.log(response);
@@ -75,6 +75,11 @@ async function fetchRates() {
       } catch (error) {
         console.error(`Error fetching ${base}->${to}:`, error.message);
       }
+
+    var recordedNow = new Date().toISOString();
+
+    console.log(`[DB Updated] at ${recordedNow}`);
+
     }
   }
   
