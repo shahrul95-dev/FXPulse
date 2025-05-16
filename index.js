@@ -75,12 +75,12 @@ async function fetchRates() {
       } catch (error) {
         console.error(`Error fetching ${base}->${to}:`, error.message);
       }
+    }
 
     var recordedNow = new Date().toISOString();
 
     console.log(`[DB Updated] at ${recordedNow}`);
 
-    }
   }
   
 
