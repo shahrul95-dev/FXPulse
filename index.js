@@ -3,6 +3,9 @@ const axios = require('axios');
 const config = require('./config');
 const db = require('./db');
 const authRoutes = require('./routes/auth');
+const apiKeyAuth = require('./middleware/apiKeyAuth');
+
+const router = express.Router();
 
 const app = express();
 app.use(express.json());
@@ -11,15 +14,14 @@ app.use('/auth', authRoutes);
 const port = 3000;
 
 let memoryStore = {}; // Cached exchange rates
-let keyIndex = 0; // Current API key index
+let apiKeyIndex = 0;
 
 // Rotate to next API key
 function getNextApiKey() {
-  const key = config.apiKeys[keyIndex];
-  keyIndex = (keyIndex + 1) % config.apiKeys.length;
+  const keys = config.apiKeys;
+  const key = keys[apiKeyIndex % keys.length];
   return key;
 }
-
 
 
 // Store or update into DB
@@ -41,12 +43,18 @@ async function upsertRate(base, target, rate) {
   }
 }
 
-// Fetch rates from Twelve Data
 async function fetchRates() {
-    const apiKey = getNextApiKey();
-    const base = config.baseCurrency;
-  
-    for (const to of config.currencies) {
+  const base = config.baseCurrency;
+
+  for (let i = 0; i < config.currencies.length; i++) {
+      if (i % 2 === 0 && i !== 0) {
+        // Change API key every 2 requests
+        apiKeyIndex++;
+      }
+
+      const apiKey = getNextApiKey();
+      const to = config.currencies[i];
+
       try {
         const url = `https://api.twelvedata.com/exchange_rate?symbol=${base}/${to}&apikey=${apiKey}`;
         const response = await axios.get(url);
@@ -59,6 +67,11 @@ async function fetchRates() {
         await saveToHistory(base, to, rate);    // History insert
 
         console.log(`[DB Updated] ${base} → ${to}: ${rate}`);
+
+        if (isNaN(rate)) {
+          console.log(response);
+        }
+
       } catch (error) {
         console.error(`Error fetching ${base}->${to}:`, error.message);
       }
@@ -82,7 +95,7 @@ async function fetchRates() {
   }
 
   
-// Refresh every 5 minutes
+// Refresh every 5 minutesnpm run sta
 setInterval(fetchRates, 5 * 60 * 1000);
 fetchRates(); // Run immediately on start
 

@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+
 const db = require('../db');
 require('dotenv').config();
 
@@ -45,7 +46,7 @@ router.post('/login', async (req, res) => {
     if (!user.is_verified) {
         return res.status(403).json({ error: 'Please verify your email before logging in.' });
       }
-      
+
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
     const match = await bcrypt.compare(password, user.password);
@@ -86,4 +87,32 @@ router.get('/verify', async (req, res) => {
     }
   });
 
+  router.post('/resend-verification', async (req, res) => {
+    const { email } = req.body;
+    try {
+      const [[user]] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+  
+      if (user.is_verified) {
+        return res.status(400).json({ error: 'User already verified' });
+      }
+  
+      const token = crypto.randomBytes(32).toString('hex');
+      const verifyLink = `${process.env.APP_URL}/auth/verify?token=${token}&email=${email}`;
+  
+      await db.query('UPDATE users SET verification_token = ? WHERE email = ?', [token, email]);
+  
+      await sendEmail(email, 'Verify your email', `
+        <h2>Hello ${user.name}</h2>
+        <p>Click the link below to verify your email:</p>
+        <a href="${verifyLink}">Verify Email</a>
+      `);
+  
+      res.json({ message: 'Verification email resent. Please check your inbox.' });
+    } catch (err) {
+      res.status(500).json({ error: 'Could not resend verification email', details: err.message });
+    }
+  });
+
+  
 module.exports = router;
